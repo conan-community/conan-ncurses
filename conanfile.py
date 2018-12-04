@@ -90,10 +90,23 @@ class ncursesConan(ConanFile):
                                   "#if HAVE_SYS_TIME_H\n"
                                   "#include <sys/time.h>\n"
                                   "#endif")
+            tools.replace_in_file(os.path.join("progs", "progs.priv.h"),
+                                  "/* usually in <unistd.h> */",
+                                  "/* usually in <unistd.h> */\n"
+                                  "#ifndef STDIN_FILENO\n"
+                                  "#define STDIN_FILENO 0\n"
+                                  "#endif\n")
             win_driver = os.path.join("ncurses", "win32con", "win_driver.c")
             tools.replace_in_file(win_driver,
                                   "#ifndef __GNUC__",
                                   "#if 0")
+            # MSVC cannot check for executable permission https://msdn.microsoft.com/en-us/library/1w06ktdy.aspx
+            tools.replace_in_file(os.path.join("ncurses", "curses.priv.h"),
+                                  "#define	X_OK\t1",
+                                  "#define	X_OK\t0")
+            tools.replace_in_file(os.path.join("progs", "progs.priv.h"),
+                                  "#define	X_OK\t1",
+                                  "#define	X_OK\t0")
             # TODO: below should have #ifdef _MSC_VER for compatibily...
             tools.replace_in_file(win_driver,
                                   "CHAR_INFO ci[n];",
@@ -118,7 +131,7 @@ class ncursesConan(ConanFile):
                                   "#include <windows.h>\n"
                                   "#include <winsock2.h>")
 
-    def _configure_autotools(self):
+    def _configure_autotools(self, fallbacks=None):
         if not self._autotools:
             args = [
                 '--enable-overwrite',
@@ -126,9 +139,21 @@ class ncursesConan(ConanFile):
                 '--without-tests',
                 '--enable-term-driver',
                 '--disable-echo',
-                '--with-{}'.format("shared" if self.options.shared else "normal"),
-                '--without-{}'.format("normal" if self.options.shared else "shared")
+                '--without-profile',
                 ]
+
+            if fallbacks:
+                args.extend(["--with-fallbacks=%s" % ",".join(fallbacks),
+                             "--disable-database"])
+
+            if self.options.shared:
+                args.extend(['--with-shared', '--without-normal', '--without-debug'])
+            else:
+                args.append('--without-shared')
+                if self.settings.build_type == "Debug":
+                    args.extend(['--without-normal', '--with-debug'])
+                else:
+                    args.extend(['--with-normal', '--without-debug'])
 
             if self._is_msvc:
                 prefix = tools.unix_path(self.package_folder)
@@ -136,15 +161,14 @@ class ncursesConan(ConanFile):
                 args.extend(['--prefix=%s' % prefix,
                              '--disable-stripping',  # disable, as /bin/install cannot find strip
                              '--disable-db-install',  # disable, as run_tic.sh (/bin/tic.exe) segfaults
-                             '--disable-database',  # TODO : figure out how to work with fallback entries or
+                             #'--disable-database',  # TODO : figure out how to work with fallback entries or
                              # without database in general?
                              'ac_cv_func_setvbuf_reversed=no',  # asserts during configure in debug builds
                              'CC=$PWD/build-aux/compile cl -nologo',
                              'CXX=$PWD/build-aux/compile cl -nologo',
                              'CFLAGS=-FS -%s' % runtime,
                              'CXXFLAGS=-FS -%s' % runtime,
-                             # TODO: move FILENO to patch
-                             'CPPFLAGS=-DSTDIN_FILENO=0 -DSTDOUT_FILENO=1 -DSTDERR_FILENO=2 -D_WIN32_WINNT=0x0600 -I%s/include' % prefix,
+                             'CPPFLAGS=-D_WIN32_WINNT=0x0600 -I%s/include' % prefix,
                              'LD=link',
                              'LDFLAGS=user32.lib -L%s/lib' % prefix,
                              'NM=dumpbin -symbols',
@@ -170,7 +194,29 @@ class ncursesConan(ConanFile):
                 with tools.vcvars(self.settings):
                     env_build = VisualStudioBuildEnvironment(self)
                     with tools.environment_append(env_build.vars):
+                        # 2-step build, see INSTALL, section "CONFIGURING FALLBACK ENTRIES"
                         autotools = self._configure_autotools()
+                        autotools.make()
+
+                        self._autotools = None
+
+                        tic = os.path.join("progs", "tic.exe")
+                        source = os.path.join("misc", "terminfo.src")
+                        self.run("%s -x -s -o terminfo.db %s" % (tic, source))
+
+                        terminals = ["dumb", "unknown", "lpr", "glasstty", "vanilla",
+                                     "ms-vt100", "ms-vt100-color", "ms-vt100+", "ms-vt-utf8", "ansi-nt", "pcmw",
+                                     "rxvt-cygwin", "rxvt-cygwin-native", "cygwinB19", "cygwin", "cygwinDBG"]
+
+                        with tools.chdir("ncurses"):
+                            tools.run_in_windows_bash(self, "tinfo/MKfallback.sh "
+                                                            "../terminfo.db "
+                                                            "../misc/terminfo.src "
+                                                            "../progs/tic.exe "
+                                                            "%s > fallback.c" % " ".join(terminals))
+
+                        self._autotools = None
+                        autotools = self._configure_autotools(fallbacks=terminals)
                         autotools.make()
             else:
                 autotools = self._configure_autotools()

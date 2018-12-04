@@ -17,7 +17,9 @@ int main(int argc, char *argv[]) {
 
     printf("ncurses version: %s\n", curses_version());
 
-    //_putenv("TERM=tinfo");
+#ifdef _MSC_VER
+    _putenv("TERM=ms-vt100");
+#endif
 
     window = initscr();
 
