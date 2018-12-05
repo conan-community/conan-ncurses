@@ -85,6 +85,9 @@ class ncursesConan(ConanFile):
             tools.replace_in_file(os.path.join("include", "nc_mingw.h"),
                                   "#ifdef __MINGW32__",
                                   "#if defined(__MINGW32__) || defined(_MSC_VER)")
+            tools.replace_in_file(os.path.join("ncurses", "base", "lib_driver.c"),
+                                  "#ifdef __MINGW32__",
+                                  "#if defined(__MINGW32__) || defined(_MSC_VER)")
             tools.replace_in_file(os.path.join("include", "nc_mingw.h"),
                                   "#include <sys/time.h>",
                                   "#if HAVE_SYS_TIME_H\n"
@@ -160,9 +163,6 @@ class ncursesConan(ConanFile):
                 runtime = str(self.settings.compiler.runtime)
                 args.extend(['--prefix=%s' % prefix,
                              '--disable-stripping',  # disable, as /bin/install cannot find strip
-                             '--disable-db-install',  # disable, as run_tic.sh (/bin/tic.exe) segfaults
-                             #'--disable-database',  # TODO : figure out how to work with fallback entries or
-                             # without database in general?
                              'ac_cv_func_setvbuf_reversed=no',  # asserts during configure in debug builds
                              'CC=$PWD/build-aux/compile cl -nologo',
                              'CXX=$PWD/build-aux/compile cl -nologo',
@@ -196,27 +196,6 @@ class ncursesConan(ConanFile):
                     with tools.environment_append(env_build.vars):
                         # 2-step build, see INSTALL, section "CONFIGURING FALLBACK ENTRIES"
                         autotools = self._configure_autotools()
-                        autotools.make()
-
-                        self._autotools = None
-
-                        tic = os.path.join("progs", "tic.exe")
-                        source = os.path.join("misc", "terminfo.src")
-                        self.run("%s -x -s -o terminfo.db %s" % (tic, source))
-
-                        terminals = ["dumb", "unknown", "lpr", "glasstty", "vanilla",
-                                     "ms-vt100", "ms-vt100-color", "ms-vt100+", "ms-vt-utf8", "ansi-nt", "pcmw",
-                                     "rxvt-cygwin", "rxvt-cygwin-native", "cygwinB19", "cygwin", "cygwinDBG"]
-
-                        with tools.chdir("ncurses"):
-                            tools.run_in_windows_bash(self, "tinfo/MKfallback.sh "
-                                                            "../terminfo.db "
-                                                            "../misc/terminfo.src "
-                                                            "../progs/tic.exe "
-                                                            "%s > fallback.c" % " ".join(terminals))
-
-                        self._autotools = None
-                        autotools = self._configure_autotools(fallbacks=terminals)
                         autotools.make()
             else:
                 autotools = self._configure_autotools()
