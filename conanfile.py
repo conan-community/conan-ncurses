@@ -73,6 +73,118 @@ class ncursesConan(ConanFile):
     def _patch_msvc_sources(self):
         if self._is_msvc:
             # TODO: this is a mess! please create patch file from this!
+            tools.replace_in_file("configure",
+                                  r"exec \$* ${LDFLAGS} -shared -Wl,--enable-auto-import,--out-implib=\${IMPORT_LIB} -Wl,--export-all-symbols -o \${SHARED_LIB}",
+                                  r"exec \$* ${LDFLAGS} -Xlinker -OUT:\${SHARED_LIB} -Xlinker -IMPLIB:\${IMPORT_LIB} -Xlinker -DLL -Xlinker -SUBSYSTEM:WINDOWS")
+            for lib in ["ncurses", "panel", "menu", "form", "c++"]:
+                tools.replace_in_file(os.path.join(lib, "Makefile.in"),
+                                      "-DHAVE_CONFIG_H",
+                                      "-DHAVE_CONFIG_H -D_BUILD_NCURSES_DLL")
+            tools.replace_in_file(os.path.join("panel", "panel.c"),
+                                  '#include "panel.priv.h"',
+                                  '#include "panel.priv.h"\n'
+                                  'NCURSES_EXPORT_VAR(SCREEN *) SP = NULL;')
+            tools.replace_in_file(os.path.join("c++", "cursesf.h"),
+                                  "#  include <form.h>",
+                                  "#  include <form.h>\n"
+                                  "__declspec(dllimport) FIELDTYPE * TYPE_ALPHA;\n"
+                                  "__declspec(dllimport) FIELDTYPE * TYPE_ALNUM;\n"
+                                  "__declspec(dllimport) FIELDTYPE * TYPE_ENUM;\n"
+                                  "__declspec(dllimport) FIELDTYPE * TYPE_INTEGER;\n"
+                                  "__declspec(dllimport) FIELDTYPE * TYPE_NUMERIC;\n"
+                                  "__declspec(dllimport) FIELDTYPE * TYPE_REGEXP;\n"
+                                  "__declspec(dllimport) FIELDTYPE * TYPE_IPV4;")
+            tools.replace_in_file(os.path.join("c++", "cursesw.h"),
+                                  "#  include   <curses.h>",
+                                  "#  define acs_map acs_map_workaround\n"
+                                  "#  include   <curses.h>\n"
+                                  "#  undef acs_map\n"
+                                  "__declspec(dllimport) int COLORS;\n"
+                                  "__declspec(dllimport) int COLOR_PAIRS;\n"
+                                  "__declspec(dllimport) unsigned acs_map[];")
+            tools.replace_in_file(os.path.join("menu", "m_global.c"),
+                                  '#include "menu.priv.h"',
+                                  '#include "menu.priv.h"\n'
+                                  'NCURSES_EXPORT_VAR(SCREEN *) SP = NULL;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) stdscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) curscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) newscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(int) LINES = 0;\n'
+                                  'NCURSES_EXPORT_VAR(int) COLS = 0;\n'
+                                  'NCURSES_EXPORT_VAR(int) TABSIZE = 8;')
+            tools.replace_in_file(os.path.join("form", "frm_data.c"),
+                                  '#include "form.priv.h"',
+                                  '#include "form.priv.h"\n'
+                                  'NCURSES_EXPORT_VAR(SCREEN *) SP = NULL;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) stdscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) curscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) newscr = 0;')
+            tools.replace_in_file(os.path.join("c++", "cursslk.cc"),
+                                  '#include "cursesapp.h"',
+                                  '#include "cursesapp.h"\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) stdscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) curscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(WINDOW *) newscr = 0;\n'
+                                  'NCURSES_EXPORT_VAR(int) LINES = 0;\n'
+                                  'NCURSES_EXPORT_VAR(int) COLS = 0;\n'
+                                  'NCURSES_EXPORT_VAR(int) TABSIZE = 8;')
+            tools.replace_in_file(os.path.join("c++", "cursslk.h"),
+                                  "static long NCURSES_IMPEXP count;",
+                                  "static long count;")
+            tools.replace_in_file(os.path.join("c++", "cursslk.h"),
+                                  "static Label_Layout NCURSES_IMPEXP  format;",
+                                  "static Label_Layout format;")
+            tools.replace_in_file(os.path.join("c++", "cursslk.h"),
+                                  "static int  NCURSES_IMPEXP num_labels;",
+                                  "static int  num_labels;")
+            tools.replace_in_file(os.path.join("c++", "cursslk.h"),
+                                  "bool NCURSES_IMPEXP b_attrInit;",
+                                  "bool b_attrInit;")
+            tools.replace_in_file(os.path.join("c++", "cursslk.h"),
+                                  "NCURSES_IMPEXP Soft_Label_Key_Set();",
+                                  "Soft_Label_Key_Set();")
+            tools.replace_in_file(os.path.join("c++", "cursslk.h"),
+                                  "NCURSES_IMPEXP Soft_Label_Key& operator[](int i);",
+                                  "Soft_Label_Key& operator[](int i);")
+            tools.replace_in_file(os.path.join("ncurses", "tinfo", "make_hash.c"),
+                                  "#include <tinfo/doalloc.c>",
+                                  "#define _MAKE_HASH\n"
+                                  "#include <tinfo/doalloc.c>")
+            tools.replace_in_file(os.path.join("ncurses", "tinfo", "make_keys.c"),
+                                  "#include <names.c>",
+                                  "#define _MAKE_KEYS\n"
+                                  "#include <names.c>")
+            tools.replace_in_file(os.path.join("ncurses", "tinfo", "doalloc.c"),
+                                  "NCURSES_EXPORT(void *)",
+                                  "#ifdef _MAKE_HASH\n"
+                                  "void*\n"
+                                  "#else\n"
+                                  "NCURSES_EXPORT(void *)\n"
+                                  "#endif")
+            tools.replace_in_file(os.path.join("ncurses", "tinfo", "MKnames.awk"),
+                                  '\t\tprint  "#define DCL(it) NCURSES_EXPORT_VAR(IT) it[]"',
+                                  '\t\tprint  "#ifdef _MAKE_KEYS"\n'
+                                  '\t\tprint  "#define DCL(it) static IT it[]"\n'
+                                  '\t\tprint  "#else"\n'
+                                  '\t\tprint  "#define DCL(it) NCURSES_EXPORT_VAR(IT) it[]"\n'
+                                  '\t\tprint  "#endif"')
+            tools.replace_in_file(os.path.join("include", "ncurses_dll.h.in"),
+                                  "#if defined(__CYGWIN__) || defined(__MINGW32__)",
+                                  "#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(_MSC_VER)")
+            tools.replace_in_file(os.path.join("include", "ncurses_dll.h.in"),
+                                  "#  define NCURSES_API __cdecl",
+                                  "#  define NCURSES_API")
+            tools.replace_in_file(os.path.join("include", "ncurses_dll.h.in"),
+                                  "#undef NCURSES_DLL\n"
+                                  "#define NCURSES_STATIC",
+                                  "#undef NCURSES_DLL\n"
+                                  "#ifdef _USE_NCURSES_DLL\n"
+                                  "  #ifdef _BUILD_NCURSES_DLL\n"
+                                  "    #define NCURSES_DLL\n"
+                                  "  #endif\n"
+                                  "#else\n"
+                                  "  #define NCURSES_STATIC\n"
+                                  "#endif\n")
             tools.replace_in_file(os.path.join("include", "MKterm.h.awk.in"),
                                   "#if __MINGW32__",
                                   "#if defined(__MINGW32__) || defined(_MSC_VER)")
@@ -133,6 +245,15 @@ class ncursesConan(ConanFile):
                                   "#include <windows.h>",
                                   "#include <windows.h>\n"
                                   "#include <winsock2.h>")
+            # we need DllMain
+            tools.replace_in_file(os.path.join('ncurses', 'win32con', 'win_driver.c'),
+                                  '#include <io.h>',
+                                  '#include <io.h>\n'
+                                  '#if defined(_MSC_VER) && defined(_BUILD_NCURSES_DLL)\n'
+                                  '__declspec(dllexport) BOOL WINAPI DllMain(\n'
+                                  '    HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)\n'
+                                  '    { return TRUE; }\n'
+                                  '#endif\n')
 
     def _configure_autotools(self):
         if not self._autotools:
@@ -158,16 +279,18 @@ class ncursesConan(ConanFile):
             if self._is_msvc:
                 prefix = tools.unix_path(self.package_folder)
                 runtime = str(self.settings.compiler.runtime)
+                extra_defines = '-D_USE_NCURSES_DLL' if self.options.shared else ''
                 args.extend(['--prefix=%s' % prefix,
                              '--disable-stripping',  # disable, as /bin/install cannot find strip
                              'ac_cv_func_setvbuf_reversed=no',  # asserts during configure in debug builds
+                             'cf_cv_link_dataonly=yes',  # disable broken linker workarounds
                              'CC=$PWD/build-aux/compile cl -nologo',
                              'CXX=$PWD/build-aux/compile cl -nologo',
                              'CFLAGS=-FS -%s' % runtime,
                              'CXXFLAGS=-FS -%s' % runtime,
-                             'CPPFLAGS=-D_WIN32_WINNT=0x0600 -I%s/include' % prefix,
+                             'CPPFLAGS=-D_WIN32_WINNT=0x0600 -I%s/include %s' % (prefix, extra_defines),
                              'LD=link',
-                             'LDFLAGS=user32.lib -L%s/lib' % prefix,
+                             'LDFLAGS=user32.lib kernel32.lib -L%s/lib' % prefix,
                              'NM=dumpbin -symbols',
                              'STRIP=:',
                              'AR=$PWD/build-aux/ar-lib lib',
@@ -217,4 +340,11 @@ class ncursesConan(ConanFile):
                 autotools.install()
 
     def package_info(self):
-        self.cpp_info.libs = tools.collect_libs(self)
+        libs = ['form', 'menu', 'panel', 'ncurses']
+        if self.options.with_cpp:
+            libs.append('ncurses++')
+        if self._is_msvc and self.options.shared:
+            libs = ['%s.dll.lib' % lib for lib in libs]
+        self.cpp_info.libs = libs
+        if self.options.shared:
+            self.cpp_info.defines.append("_USE_NCURSES_DLL=1")

@@ -107,6 +107,11 @@ func_cl_dashl ()
       lib=$dir/$lib.dll.lib
       break
     fi
+    if $shared && test -f "$dir/lib$lib.dll.a"; then
+      found=yes
+      lib=$dir/lib$lib.dll.a
+      break
+    fi
     if test -f "$dir/$lib.lib"; then
       found=yes
       lib=$dir/$lib.lib
