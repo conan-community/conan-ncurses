@@ -134,7 +134,7 @@ class ncursesConan(ConanFile):
                                   "#include <windows.h>\n"
                                   "#include <winsock2.h>")
 
-    def _configure_autotools(self, fallbacks=None):
+    def _configure_autotools(self):
         if not self._autotools:
             args = [
                 '--enable-overwrite',
@@ -143,20 +143,17 @@ class ncursesConan(ConanFile):
                 '--enable-term-driver',
                 '--disable-echo',
                 '--without-profile',
+                '--with-sp-funcs',
+                '--enable-pc-files'
                 ]
-
-            if fallbacks:
-                args.extend(["--with-fallbacks=%s" % ",".join(fallbacks),
-                             "--disable-database"])
 
             if self.options.shared:
                 args.extend(['--with-shared', '--without-normal', '--without-debug'])
             else:
-                args.append('--without-shared')
                 if self.settings.build_type == "Debug":
-                    args.extend(['--without-normal', '--with-debug'])
+                    args.extend(['--without-shared', '--without-normal', '--with-debug'])
                 else:
-                    args.extend(['--with-normal', '--without-debug'])
+                    args.extend(['--without-shared', '--with-normal', '--without-debug'])
 
             if self._is_msvc:
                 prefix = tools.unix_path(self.package_folder)
@@ -194,7 +191,6 @@ class ncursesConan(ConanFile):
                 with tools.vcvars(self.settings):
                     env_build = VisualStudioBuildEnvironment(self)
                     with tools.environment_append(env_build.vars):
-                        # 2-step build, see INSTALL, section "CONFIGURING FALLBACK ENTRIES"
                         autotools = self._configure_autotools()
                         autotools.make()
             else:
