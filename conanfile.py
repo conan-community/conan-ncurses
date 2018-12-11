@@ -5,7 +5,6 @@ import os
 import shutil
 import glob
 from conans import ConanFile, AutoToolsBuildEnvironment, tools, VisualStudioBuildEnvironment
-from conans.errors import ConanInvalidConfiguration
 
 
 class ncursesConan(ConanFile):
@@ -19,13 +18,11 @@ class ncursesConan(ConanFile):
                   "in a terminal-independent manner"
     topics = ("conan", "ncurses", "terminal", "screen", "tui")
     settings = "os", "compiler", "arch", "build_type"
-    options = {"shared": [True, False], "fPIC": [True, False], "with_cpp": [True, False],
-               "allow_msvc": [True, False], "allow_mingw": [True, False]}
-    default_options = {"shared": False, "fPIC": True, "with_cpp": True,
-                       "allow_msvc": True, "allow_mingw": True}
+    options = {"shared": [True, False], "fPIC": [True, False], "with_cpp": [True, False]}
+    default_options = {"shared": False, "fPIC": True, "with_cpp": True}
     exports = "LICENSE"
     # NOTE: "compile" was patched: .cc files are properly handled with MinGW-style path conversion
-    exports_sources = ["ncurses.patch", "compile", "ar-lib"]
+    exports_sources = ["*.patch", "compile", "ar-lib"]
     _autotools = None
     _source_subfolder = "source_subfolder"
 
@@ -40,6 +37,7 @@ class ncursesConan(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
+            del self.options.shared
 
     def requirements(self):
         if self._is_msvc:
@@ -47,11 +45,6 @@ class ncursesConan(ConanFile):
             self.requires("dirent-win32/1.23.2@bincrafters/stable")
 
     def configure(self):
-        # FIXME (uilian): Fix Windows support
-        if self.settings.os == "Windows" and self.settings.compiler == "gcc" and not self.options.allow_mingw:
-            raise ConanInvalidConfiguration("Oops! ncurses is not supported on MinGW yet")
-        if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio" and not self.options.allow_msvc:
-            raise ConanInvalidConfiguration("Oops! ncurses is not supported for Visual Studio yet")
         if not self.options.with_cpp:
             del self.settings.compiler.libcxx
 
@@ -70,70 +63,6 @@ class ncursesConan(ConanFile):
         if self._is_msvc or self._is_mingw_windows:
             self.build_requires("msys2_installer/latest@bincrafters/stable")
 
-    def _patch_msvc_sources(self):
-        if self._is_msvc:
-            # TODO: this is a mess! please create patch file from this!
-            tools.replace_in_file(os.path.join("include", "MKterm.h.awk.in"),
-                                  "#if __MINGW32__",
-                                  "#if defined(__MINGW32__) || defined(_MSC_VER)")
-            tools.replace_in_file(os.path.join("include", "ncurses_mingw.h"),
-                                  "#ifdef __MINGW32__",
-                                  "#if defined(__MINGW32__) || defined(_MSC_VER)")
-            tools.replace_in_file(os.path.join("include", "nc_termios.h"),
-                                  "#if __MINGW32__",
-                                  "#if defined(__MINGW32__) || defined(_MSC_VER)")
-            tools.replace_in_file(os.path.join("include", "nc_mingw.h"),
-                                  "#ifdef __MINGW32__",
-                                  "#if defined(__MINGW32__) || defined(_MSC_VER)")
-            tools.replace_in_file(os.path.join("ncurses", "base", "lib_driver.c"),
-                                  "#ifdef __MINGW32__",
-                                  "#if defined(__MINGW32__) || defined(_MSC_VER)")
-            tools.replace_in_file(os.path.join("include", "nc_mingw.h"),
-                                  "#include <sys/time.h>",
-                                  "#if HAVE_SYS_TIME_H\n"
-                                  "#include <sys/time.h>\n"
-                                  "#endif")
-            tools.replace_in_file(os.path.join("progs", "progs.priv.h"),
-                                  "/* usually in <unistd.h> */",
-                                  "/* usually in <unistd.h> */\n"
-                                  "#ifndef STDIN_FILENO\n"
-                                  "#define STDIN_FILENO 0\n"
-                                  "#endif\n")
-            win_driver = os.path.join("ncurses", "win32con", "win_driver.c")
-            tools.replace_in_file(win_driver,
-                                  "#ifndef __GNUC__",
-                                  "#if 0")
-            # MSVC cannot check for executable permission https://msdn.microsoft.com/en-us/library/1w06ktdy.aspx
-            tools.replace_in_file(os.path.join("ncurses", "curses.priv.h"),
-                                  "#define	X_OK\t1",
-                                  "#define	X_OK\t0")
-            tools.replace_in_file(os.path.join("progs", "progs.priv.h"),
-                                  "#define	X_OK\t1",
-                                  "#define	X_OK\t0")
-            # TODO: below should have #ifdef _MSC_VER for compatibily...
-            tools.replace_in_file(win_driver,
-                                  "CHAR_INFO ci[n];",
-                                  "CHAR_INFO * ci = (CHAR_INFO*) _alloca(sizeof(CHAR_INFO) * n);")
-            tools.replace_in_file(win_driver,
-                                  "CHAR_INFO ci[limit];",
-                                  "CHAR_INFO * ci = (CHAR_INFO*) _alloca(sizeof(CHAR_INFO) * limit);")
-            tools.replace_in_file(win_driver,
-                                  "CHAR_INFO this_screen[max_cells];",
-                                  "CHAR_INFO * this_screen = (CHAR_INFO*) _alloca(sizeof(CHAR_INFO) * max_cells);")
-            tools.replace_in_file(win_driver,
-                                  "CHAR_INFO that_screen[max_cells];",
-                                  "CHAR_INFO * that_screen = (CHAR_INFO*) _alloca(sizeof(CHAR_INFO) * max_cells);")
-            tools.replace_in_file(win_driver,
-                                  "cchar_t empty[Width];",
-                                  "cchar_t * empty = (cchar_t*) _alloca(sizeof(cchar_t) * Width);")
-            tools.replace_in_file(win_driver,
-                                  "chtype empty[Width];",
-                                  "chtype * empty = (chtype*) _alloca(sizeof(chtype) * Width);")
-            tools.replace_in_file(os.path.join("ncurses", "win32con", "gettimeofday.c"),
-                                  "#include <windows.h>",
-                                  "#include <windows.h>\n"
-                                  "#include <winsock2.h>")
-
     def _configure_autotools(self):
         if not self._autotools:
             args = [
@@ -147,7 +76,7 @@ class ncursesConan(ConanFile):
                 '--enable-pc-files'
                 ]
 
-            if self.options.shared:
+            if self.settings.os != "Windows" and self.options.shared:
                 args.extend(['--with-shared', '--without-normal', '--without-debug'])
             else:
                 if self.settings.build_type == "Debug":
@@ -174,7 +103,7 @@ class ncursesConan(ConanFile):
                              'RANLIB=:'])
 
             if self.options.with_cpp:
-                args.append('--with-{}'.format("cxx-shared" if self.options.shared else "cxx"))
+                args.append('--with-{}'.format("cxx-shared" if self.settings.os != "Windows" and self.options.shared else "cxx"))
             else:
                 args.extend(['--without-cxx-shared', "--without-cxx"])
             self._autotools = AutoToolsBuildEnvironment(self, win_bash=tools.os_info.is_windows)
@@ -186,7 +115,7 @@ class ncursesConan(ConanFile):
 
         with tools.chdir(self._source_subfolder):
             if self._is_msvc:
-                self._patch_msvc_sources()
+                tools.patch(patch_file=os.path.join(self.build_folder, "msvc.patch"))
 
                 with tools.vcvars(self.settings):
                     env_build = VisualStudioBuildEnvironment(self)
