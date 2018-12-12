@@ -48,11 +48,6 @@ class ncursesConan(ConanFile):
     def configure(self):
         if not self.options.with_cpp:
             del self.settings.compiler.libcxx
-        if self.settings.os == "Windows":
-            if self.settings.arch == "x86":
-                raise ConanInvalidConfiguration("ncurses could not be built for x86 on Windows")
-            if self.settings.compiler == "Visual Studio" and "MT" in self.settings.compiler.runtime:
-                raise ConanInvalidConfiguration("ncurses could not be built with runtime MT")
 
     def source(self):
         folder_name = "ncurses-%s" % self.version
@@ -71,6 +66,8 @@ class ncursesConan(ConanFile):
 
     def _configure_autotools(self):
         if not self._autotools:
+            build = None
+            host = None
             args = [
                 '--enable-overwrite',
                 '--without-manpages',
@@ -108,13 +105,16 @@ class ncursesConan(ConanFile):
                              'STRIP=:',
                              'AR=$PWD/build-aux/ar-lib lib',
                              'RANLIB=:'])
+                if self.settings.arch == "x86":
+                    build = False
+                    host = False
 
             if self.options.with_cpp:
                 args.append('--with-{}'.format("cxx-shared" if self.settings.os != "Windows" and self.options.shared else "cxx"))
             else:
                 args.extend(['--without-cxx-shared', "--without-cxx"])
             self._autotools = AutoToolsBuildEnvironment(self, win_bash=tools.os_info.is_windows)
-            self._autotools.configure(args=args)
+            self._autotools.configure(args=args, host=host, build=build)
         return self._autotools
 
     def build(self):
