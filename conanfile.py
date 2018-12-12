@@ -73,7 +73,8 @@ class ncursesConan(ConanFile):
                 '--disable-echo',
                 '--without-profile',
                 '--with-sp-funcs',
-                '--enable-pc-files'
+                '--enable-pc-files',
+                '--with-pkg-config-libdir=${prefix}/lib/pkgconfig'
                 ]
 
             if self.settings.os != "Windows" and self.options.shared:
