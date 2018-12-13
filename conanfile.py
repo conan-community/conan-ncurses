@@ -5,6 +5,7 @@ import os
 import shutil
 import glob
 from conans import ConanFile, AutoToolsBuildEnvironment, tools, VisualStudioBuildEnvironment
+from conans.model.version import Version
 from conans.errors import ConanInvalidConfiguration
 
 
@@ -48,6 +49,13 @@ class ncursesConan(ConanFile):
     def configure(self):
         if not self.options.with_cpp:
             del self.settings.compiler.libcxx
+        if self.settings.os == "Windows":
+            if self.settings.arch != "x86_64":
+                raise ConanInvalidConfiguration("ncurse is only support for x86_64 on Windows")
+            if self._is_msvc and \
+               Version(self.settings.compiler.version.value) < "15" and \
+               self.settings.compiler.runtime == "MTd":
+                raise ConanInvalidConfiguration("ncurse can not be built for MTd")
 
     def source(self):
         folder_name = "ncurses-%s" % self.version
