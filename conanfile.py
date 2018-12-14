@@ -53,7 +53,6 @@ class ncursesConan(ConanFile):
             if self.settings.arch != "x86_64":
                 raise ConanInvalidConfiguration("ncurse is only support for x86_64 on Windows")
             if self._is_msvc and \
-               Version(self.settings.compiler.version.value) < "15" and \
                self.settings.compiler.runtime == "MTd":
                 raise ConanInvalidConfiguration("ncurse can not be built for MTd")
 
@@ -131,6 +130,7 @@ class ncursesConan(ConanFile):
         with tools.chdir(self._source_subfolder):
             if self._is_msvc:
                 tools.patch(patch_file=os.path.join(self.build_folder, "msvc.patch"))
+                tools.replace_in_file("aclocal.m4", "using std::endl;", "using namespace std;")
 
                 with tools.vcvars(self.settings):
                     env_build = VisualStudioBuildEnvironment(self)
