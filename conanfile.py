@@ -50,6 +50,9 @@ class ncursesConan(ConanFile):
         if not self.options.with_cpp:
             del self.settings.compiler.libcxx
         if self.settings.os == "Windows":
+            if self._is_msvc and \
+               Version(self.settings.compiler.version.value) < "14":
+                raise ConanInvalidConfiguration("ncurse is only support for MSVC > 12")
             if self.settings.arch != "x86_64":
                 raise ConanInvalidConfiguration("ncurse is only support for x86_64 on Windows")
             if self._is_msvc and \
