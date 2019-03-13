@@ -20,8 +20,8 @@ class ncursesConan(ConanFile):
                   "in a terminal-independent manner"
     topics = ("conan", "ncurses", "terminal", "screen", "tui")
     settings = "os", "compiler", "arch", "build_type"
-    options = {"shared": [True, False], "fPIC": [True, False], "with_cpp": [True, False]}
-    default_options = {"shared": False, "fPIC": True, "with_cpp": True}
+    options = {"shared": [True, False], "fPIC": [True, False], "with_cpp": [True, False], "with_termlib": [True, False]}
+    default_options = {"shared": False, "fPIC": True, "with_cpp": True, "with_termlib": False}
     exports = "LICENSE"
     # NOTE: "compile" was patched: .cc files are properly handled with MinGW-style path conversion
     exports_sources = ["*.patch", "compile", "ar-lib"]
@@ -78,14 +78,15 @@ class ncursesConan(ConanFile):
         if not self._autotools:
             build = None
             host = None
+            term_arg = "--with-termlib" if self.options.with_termlib else "--enable-term-driver"
             args = [
                 '--enable-overwrite',
                 '--without-manpages',
                 '--without-tests',
-                '--enable-term-driver',
                 '--disable-echo',
                 '--without-profile',
                 '--with-sp-funcs',
+                term_arg,
                 '--enable-pc-files',
                 '--with-pkg-config-libdir=${prefix}/lib/pkgconfig'
                 ]
