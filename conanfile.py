@@ -80,6 +80,7 @@ class ncursesConan(ConanFile):
             host = None
             term_arg = "--with-termlib" if self.options.with_termlib else "--enable-term-driver"
             args = [
+                '--enable-widec',
                 '--enable-overwrite',
                 '--without-manpages',
                 '--without-tests',
