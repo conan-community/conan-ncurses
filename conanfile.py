@@ -20,8 +20,8 @@ class ncursesConan(ConanFile):
                   "in a terminal-independent manner"
     topics = ("conan", "ncurses", "terminal", "screen", "tui")
     settings = "os", "compiler", "arch", "build_type"
-    options = {"shared": [True, False], "fPIC": [True, False], "with_cpp": [True, False], "with_termlib": [True, False]}
-    default_options = {"shared": False, "fPIC": True, "with_cpp": True, "with_termlib": False}
+    options = {"shared": [True, False], "fPIC": [True, False], "with_cpp": [True, False], "with_termlib": [True, False], "with_widec": [True, False]}
+    default_options = {"shared": False, "fPIC": True, "with_cpp": True, "with_termlib": False, "with_widec": False}
     exports = "LICENSE"
     # NOTE: "compile" was patched: .cc files are properly handled with MinGW-style path conversion
     exports_sources = ["*.patch", "compile", "ar-lib"]
@@ -90,6 +90,9 @@ class ncursesConan(ConanFile):
                 '--enable-pc-files',
                 '--with-pkg-config-libdir=${prefix}/lib/pkgconfig'
                 ]
+                
+            if self.options.with_widec:
+                args.extend(['--enable-widec'])
 
             if self.settings.os != "Windows" and self.options.shared:
                 args.extend(['--with-shared', '--without-normal', '--without-debug'])
